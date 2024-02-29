@@ -27,14 +27,15 @@ def readBMP(fileName: str) -> (np.ndarray, (int, int), str):
             bG = int.from_bytes(file.read(1), "little", signed=False)
             bR = int.from_bytes(file.read(1), "little", signed=False)
             data[i][j] = np.array([bR, bG, bB], dtype=np.uint8)
-        for k in range((width - 4) % 4):
+        # eat up padding 0s in raw data
+        for k in range(width % 4):
             r = int.from_bytes(file.read(1), "little", signed=False)
 
     return data, (width, height), ""
 
 def cvtGrayscale(data: np.ndarray) -> np.ndarray:
-    print(data.shape)
-    ret = np.zeros((data.shape[0], data.shape[1]), dtype=np.uint8)
+    # dealing with 32-alignment issue, padding (4 - width) % 4 0s
+    ret = np.zeros((data.shape[0], data.shape[1] + (4 - data.shape[1]) % 4), dtype=np.uint8)
     for i in range(data.shape[0]):
         # for [r, g, b] in row:
             # ret[-1].append(0.299 * r + 0.587 * g + 0.114 * b)

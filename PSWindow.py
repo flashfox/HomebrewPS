@@ -74,7 +74,6 @@ class PSWindow(QMainWindow):
         else:
             self.setMinimumSize(INIT_WINDOW_WIDTH, INIT_WINDOW_HEIGHT)
 
-        self.update()
         self.show()
 
     def close(self):

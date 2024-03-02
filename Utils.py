@@ -1,6 +1,21 @@
 import os
 import numpy as np
 
+'''const ordered dithering matrices'''
+class DitheringMat:
+    mat = [np.asarray([[0, 2], [3, 1]]),
+           np.asarray([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]),
+           np.asarray([[ 0, 32,  8, 40,  2, 34, 10, 42],
+                       [48, 16, 56, 24, 50, 18, 58, 26],
+                       [12, 44,  4, 36, 14, 46,  6, 38],
+                       [60, 28, 52, 20, 62, 30, 54, 22],
+                       [ 3, 35, 11, 43,  1, 33,  9, 41],
+                       [51, 19, 59, 27, 49, 17, 57, 25],
+                       [15, 47,  7, 39, 13, 45,  5, 37],
+                       [63, 31, 55, 23, 61, 29, 53, 21]])]
+    DIM = [2, 4, 8]
+    MAX = [3, 15, 63]
+
 def readBMP(fileName: str) -> (np.ndarray, (int, int), str):
     # read file and check validity
     try:
@@ -13,13 +28,15 @@ def readBMP(fileName: str) -> (np.ndarray, (int, int), str):
         file.seek(12, os.SEEK_CUR)
         width = int.from_bytes(file.read(4), "little")
         height = int.from_bytes(file.read(4), "little")
+        file.seek(2, os.SEEK_CUR)
+        channel = int.from_bytes(file.read(2), "little")
         assert bmpMarker == b'BM', str.format("Not a BMP file: %s" %fileName)
         assert fileSize > 0 and width > 0 and height > 0, str.format("BMP file not valid: %s" %fileName)
     except AssertionError as e:
         return None, (-1, -1), str(e)
 
     # read pixel data
-    file.seek(28, os.SEEK_CUR)
+    file.seek(24, os.SEEK_CUR)
     data = np.zeros((height, width, 3), dtype=np.uint8)
     for i in range(height - 1, -1, -1):
         for j in range(width):
@@ -37,10 +54,16 @@ def cvtGrayscale(data: np.ndarray) -> np.ndarray:
     # dealing with 32-alignment issue, padding (4 - width) % 4 0s
     ret = np.zeros((data.shape[0], data.shape[1] + (4 - data.shape[1]) % 4), dtype=np.uint8)
     for i in range(data.shape[0]):
-        # for [r, g, b] in row:
-            # ret[-1].append(0.299 * r + 0.587 * g + 0.114 * b)
         for j in range(data.shape[1]):
             ret[i][j] = 0.299 * data[i][j][0] + 0.587 * data[i][j][1] + 0.114 * data[i][j][2]
-
-    # return np.asarray(ret, dtype=np.int8)
     return ret
+
+def cvtOrderedDithering(grayData: np.ndarray, ditType: int = 0) -> np.ndarray:
+    ret = np.zeros(grayData.shape, dtype=np.uint8)
+    for i in range(grayData.shape[0]):
+        for j in range(grayData.shape[1]):
+            pixel = 255 - grayData[i, j]
+            x, y = i % DitheringMat.DIM[ditType], j % DitheringMat.DIM[ditType]
+            ret[i, j] = 0 if pixel * DitheringMat.MAX[ditType] / 255 > DitheringMat.mat[ditType][x, y] else 255
+    return ret
+

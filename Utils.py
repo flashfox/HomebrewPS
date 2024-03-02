@@ -2,7 +2,7 @@ import os
 import numpy as np
 
 '''const ordered dithering matrices'''
-class DitheringMat:
+class Dithering:
     mat = [np.asarray([[0, 2], [3, 1]]),
            np.asarray([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]),
            np.asarray([[ 0, 32,  8, 40,  2, 34, 10, 42],
@@ -13,8 +13,6 @@ class DitheringMat:
                        [51, 19, 59, 27, 49, 17, 57, 25],
                        [15, 47,  7, 39, 13, 45,  5, 37],
                        [63, 31, 55, 23, 61, 29, 53, 21]])]
-    DIM = [2, 4, 8]
-    MAX = [3, 15, 63]
 
 def readBMP(fileName: str) -> (np.ndarray, (int, int), str):
     # read file and check validity
@@ -59,11 +57,24 @@ def cvtGrayscale(data: np.ndarray) -> np.ndarray:
     return ret
 
 def cvtOrderedDithering(grayData: np.ndarray, ditType: int = 0) -> np.ndarray:
+    DIM = 2 ** (ditType + 1) # dimension of dithering matrix
+    MAX = DIM ** 2 - 1 # maximum value of dithering matrix
     ret = np.zeros(grayData.shape, dtype=np.uint8)
     for i in range(grayData.shape[0]):
         for j in range(grayData.shape[1]):
             pixel = 255 - grayData[i, j]
-            x, y = i % DitheringMat.DIM[ditType], j % DitheringMat.DIM[ditType]
-            ret[i, j] = 0 if pixel * DitheringMat.MAX[ditType] / 255 > DitheringMat.mat[ditType][x, y] else 255
+            x, y = i % DIM, j % DIM
+            ret[i, j] = 0 if pixel * MAX / 255 > Dithering.mat[ditType][x, y] else 255
     return ret
 
+def cvtColoredOrderedDithering(rawData: np.ndarray, ditType: int = 0) -> np.ndarray:
+    DIM = 2 ** (ditType + 1) # dimension of dithering matrix
+    MAX = DIM ** 2 - 1 # maximum value of dithering matrix
+    ret = np.zeros(rawData.shape, dtype=np.uint8)
+    for i in range(rawData.shape[0]):
+        for j in range(rawData.shape[1]):
+            for c in range(rawData.shape[2]):
+                pixel = 255 - rawData[i, j, c]
+                x, y = i % DIM, j % DIM
+                ret[i, j, c] = 0 if pixel * MAX / 255 > Dithering.mat[ditType][x, y] else 255
+    return ret

@@ -6,12 +6,11 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QMessageBox,
     QLabel,
-    QMdiSubWindow,
-    QVBoxLayout,
     QHBoxLayout,
 )
 from PyQt5.QtGui import QIcon, QPixmap, QImage
 from Utils import readBMP, cvtGrayscale, cvtOrderedDithering
+from Utils import cvtColoredOrderedDithering
 from PyQt5.QtCore import *
 
 # Global consts
@@ -19,44 +18,53 @@ DEF_WIDTH = 300
 DEF_HEIGHT = 100
 INIT_WINDOW_WIDTH = 1024
 INIT_WINDOW_HEIGHT = 768
+ICON = 'psIcon.png'
+
 class PSWindow(QMainWindow):
     def __init__(self):
         # Window init
         super().__init__()
         self.setWindowTitle("Homebrew Photoshop")
-        self.setWindowIcon(QIcon('psIcon.png'))
+        self.setWindowIcon(QIcon(ICON))
         self.resize(INIT_WINDOW_WIDTH, INIT_WINDOW_HEIGHT)
         self.width = self.height = -1
 
-        # Menu bar
-        self.menuFiles = QMenu("&Core Operations", self)
-        self.menuFiles.addAction(QAction("&Open File", self, shortcut="Ctrl+O", triggered=self.openFile))
-        self.menuFiles.addAction(QAction("&Exit", self, shortcut="Ctrl+Q", triggered=self.close))
-        self.menuFiles.addSeparator()
-        self.menuFiles.addAction(QAction("&Grayscale", self, shortcut="Alt+G", triggered=self.grayScale))
-        # self.menuFiles.addAction(QAction("&Ordered Dithering", self, shortcut="Alt+D", triggered=self.orderedDithering))
-        ordDitMenu = self.menuFiles.addMenu("&Ordered Dithering")
-        opts = [QAction("&2x2 matrix", self), QAction("&4x4 matrix", self), QAction("&8x8 matrix", self)]
-        opts[0].triggered.connect(lambda x: self.orderedDithering(0))
-        opts[1].triggered.connect(lambda x: self.orderedDithering(1))
-        opts[2].triggered.connect(lambda x: self.orderedDithering(2))
-        ordDitMenu.addActions(opts)
+        # Menu bar: core ops
+        self.menuCoreOps = QMenu("&Core Operations", self)
+        self.menuCoreOps.addAction(QAction("&Open File", self, shortcut="Ctrl+O", triggered=self.openFile))
+        self.menuCoreOps.addAction(QAction("&Exit", self, shortcut="Ctrl+Q", triggered=self.close))
+        self.menuCoreOps.addSeparator()
+        self.menuCoreOps.addAction(QAction("&Grayscale", self, shortcut="Alt+G", triggered=self.grayScale))
+        orderedOpts = [QAction("&2x2 matrix", self), QAction("&4x4 matrix", self), QAction("&8x8 matrix", self)]
+        orderedOpts[0].triggered.connect(lambda: self.orderedDithering(0))
+        orderedOpts[1].triggered.connect(lambda: self.orderedDithering(1))
+        orderedOpts[2].triggered.connect(lambda: self.orderedDithering(2))
+        ordDitMenu = self.menuCoreOps.addMenu("&Ordered Dithering")
+        ordDitMenu.addActions(orderedOpts)
+        self.menuCoreOps.addAction(QAction("&Auto Level", self, shortcut="Alt+A", triggered=self.autolevel))
+        self.menuCoreOps.addAction(QAction("&Huffman", self, shortcut="Alt+H", triggered=self.huffman))
 
-        self.menuFiles.addAction(QAction("&Auto Level", self, shortcut="Alt+A", triggered=self.autolevel))
-        self.menuFiles.addAction(QAction("&Huffman", self, shortcut="Alt+H", triggered=self.huffman))
-        self.menuEdits = QMenu("&Optional Operations", self)
+        # Menu bar: optional ops
+        self.menuOptOps = QMenu("&Optional Operations", self)
+        coloredorderdOpts = [QAction("&2x2 matrix", self), QAction("&4x4 matrix", self), QAction("&8x8 matrix", self)]
+        coloredorderdOpts[0].triggered.connect(lambda: self.coloredOrderedDithering(0))
+        coloredorderdOpts[1].triggered.connect(lambda: self.coloredOrderedDithering(1))
+        coloredorderdOpts[2].triggered.connect(lambda: self.coloredOrderedDithering(2))
+        coloredOrdDitMenu = self.menuOptOps.addMenu("&Colored Ordered Dithering")
+        coloredOrdDitMenu.addActions(coloredorderdOpts)
 
-        self.menuBar().addMenu(self.menuFiles)
-        self.menuBar().addMenu(self.menuEdits)
+        self.menuBar().addMenu(self.menuCoreOps)
+        self.menuBar().addMenu(self.menuOptOps)
 
         # Image view
         self.rawImgView = QLabel()
-        layout = QVBoxLayout()
+        layout = QHBoxLayout()
         layout.addWidget(self.rawImgView)
         mainView = QWidget()
         mainView.setLayout(layout)
         self.setCentralWidget(mainView)
-        # post processing view (sub window)
+
+        # Post-processing view (sub window, unique)
         self.postImgView = None
         self.grayData = None
 
@@ -67,7 +75,7 @@ class PSWindow(QMainWindow):
             if width < 0 or height < 0:
                 QMessageBox.information(self, "Homebrew Photoshop", errMsg)
             return
-        # init processed data
+        # reset processed data
         if self.grayData is not None:
             self.grayData = None
         if self.postImgView is not None:
@@ -98,27 +106,28 @@ class PSWindow(QMainWindow):
         if self.postImgView is not None:
             if self.postImgView.windowTitle() == 'Grayscale':
                 return
-        data = cvtGrayscale(self.rawData)
-        self.grayData = data
+        if self.grayData is None:
+            self.grayData = cvtGrayscale(self.rawData)
         self.postImgView = PostImageWindow(
-            [QImage(self.rawData, self.width, self.height, self.width * 3,
-                      QImage.Format_RGB888), QImage(data, self.width, self.height, QImage.Format_Grayscale8)],
+            [QImage(self.rawData, self.width, self.height, self.width * 3, QImage.Format_RGB888),
+             QImage(self.grayData, self.width, self.height, QImage.Format_Grayscale8)],
             "Grayscale")
         self.postImgView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         self.postImgView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         self.postImgView.show()
 
-    def orderedDithering(self, ditType=0):
+    def orderedDithering(self, ditType: int = 0):
         if self.width <= 0 or self.height <= 0:
             return
         if self.grayData is None:
             self.grayData = cvtGrayscale(self.rawData)
         grayData = self.grayData
         ditherData = cvtOrderedDithering(grayData, ditType)
+        title = ["Ordered Dithering: 2x2 matrix", "Ordered Dithering: 4x4 matrix", "Ordered Dithering: 8x8 matrix"]
         self.postImgView = PostImageWindow(
-        [QImage(grayData, self.width, self.height, QImage.Format_Grayscale8),
-                  QImage(ditherData, self.width, self.height, QImage.Format_Grayscale8)],
-                "Ordered Dithering")
+            [QImage(grayData, self.width, self.height, QImage.Format_Grayscale8),
+             QImage(ditherData, self.width, self.height, QImage.Format_Grayscale8)],
+             title[ditType])
         self.postImgView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         self.postImgView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         self.postImgView.show()
@@ -129,12 +138,28 @@ class PSWindow(QMainWindow):
     def huffman(self):
         return
 
+    def coloredOrderedDithering(self, ditType: int = 0):
+        if self.width <= 0 or self.height <= 0:
+            return
+        ditherData = cvtColoredOrderedDithering(self.rawData, ditType)
+        title = ["Colored Ordered Dithering: 2x2 matrix",
+                 "Colored Ordered Dithering: 4x4 matrix",
+                 "Colored Ordered Dithering: 8x8 matrix"]
+        self.postImgView = PostImageWindow(
+            [QImage(self.rawData, self.width, self.height, QImage.Format_RGB888),
+             QImage(ditherData, self.width, self.height, QImage.Format_RGB888)],
+             title[ditType])
+        self.postImgView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
+        self.postImgView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
+        self.postImgView.show()
+
 
 class PostImageWindow(QWidget):
     def __init__(self, imageList: [QImage], type: str):
         # Window init
         super().__init__()
         self.setWindowTitle(type)
+        self.setWindowIcon(QIcon(ICON))
         layout = QHBoxLayout()
         viewList = []
         for img in imageList:

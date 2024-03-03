@@ -146,8 +146,8 @@ class PSWindow(QMainWindow):
                  "Colored Ordered Dithering: 4x4 matrix",
                  "Colored Ordered Dithering: 8x8 matrix"]
         self.postImgView = PostImageWindow(
-            [QImage(self.rawData, self.width, self.height, QImage.Format_RGB888),
-             QImage(ditherData, self.width, self.height, QImage.Format_RGB888)],
+            [QImage(self.rawData, self.width, self.height, self.width * 3, QImage.Format_RGB888),
+             QImage(ditherData, self.width, self.height, self.width * 3, QImage.Format_RGB888)],
              title[ditType])
         self.postImgView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         self.postImgView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))

@@ -3,7 +3,7 @@ import numpy as np
 from numba import njit
 
 # Const ordered dithering matrices
-# To use numba.njit decorator, matrices have to be hard-coded separately
+# To use decorator numba.njit, matrices must be hard-coded separately
 mat2 = np.asarray([[0, 2], [3, 1]])
 mat4 = np.asarray([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]])
 mat8 = np.asarray([[ 0, 32,  8, 40,  2, 34, 10, 42],
@@ -14,7 +14,6 @@ mat8 = np.asarray([[ 0, 32,  8, 40,  2, 34, 10, 42],
                    [51, 19, 59, 27, 49, 17, 57, 25],
                    [15, 47,  7, 39, 13, 45,  5, 37],
                    [63, 31, 55, 23, 61, 29, 53, 21]])
-
 
 def readBMP(fileName: str) -> (np.ndarray, (int, int), str):
     # read file and check validity
@@ -46,16 +45,22 @@ def readBMP(fileName: str) -> (np.ndarray, (int, int), str):
         # eat up padding 0s in raw data
         for k in range(width % 4):
             r = int.from_bytes(file.read(1), "little", signed=False)
-
     return data, (width, height), ""
 
 @njit
 def cvtGrayscale(data: np.ndarray) -> np.ndarray:
-    # dealing with 32-alignment issue, padding (4 - width) % 4 0s
-    ret = np.zeros((data.shape[0], data.shape[1] + (4 - data.shape[1]) % 4, 1), dtype=np.uint8)
+    # returned data will not be 32-aligned
+    ret = np.zeros((data.shape[0], data.shape[1], 1), dtype=np.uint8)
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
-            ret[i][j][0] = 0.299 * data[i][j][0] + 0.587 * data[i][j][1] + 0.114 * data[i][j][2]
+            ret[i, j, 0] = 0.299 * data[i, j, 0] + 0.587 * data[i, j, 1] + 0.114 * data[i, j, 2]
+    return ret
+
+@njit
+def cvtAlignedData(data: np.ndarray) -> np.ndarray:
+    # dealing with 32-alignment issue, padding (4 - width) % 4 0s
+    ret = np.zeros((data.shape[0], data.shape[1] + (4 - data.shape[1]) % 4, 1), dtype=np.uint8)
+    ret[0: data.shape[0], 0: data.shape[1]] = data
     return ret
 
 @njit
@@ -73,17 +78,34 @@ def cvtOrderedDithering(data: np.ndarray, ditType: int = 0) -> np.ndarray:
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
             for k in range(data.shape[2]):
-                pixel = 255 - data[i, j, k]
                 x, y = i % DIM, j % DIM
-                ret[i, j, k] = 0 if pixel * MAX / 255 > mat[x, y] else 255
+                ret[i, j, k] = 255 if data[i, j, k] * MAX / 255 > mat[x, y] else 0
     return ret
 
 @njit
-def histogram(data: np.ndarray) -> np.ndarray:
-    ret = np.zeros((data.shape[2], 256), dtype=np.uint8)
+def histogram(data: np.ndarray) -> (np.ndarray, int):
+    ret = np.zeros((data.shape[2], 256), dtype=np.uint32)
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
             for k in range(data.shape[2]):
-                ret[k][data[i, j, k]] += 1
-    return ret
+                ret[k, data[i, j, k]] += 1
+    return ret, np.sum(ret)
 
+@njit
+def colorAdjustment(rawData: np.ndarray,
+                    channel: int = 0,
+                    inSlider: (int, float, int) = (0, 1.0, 255), # inSlider = (low level, gamma, high level)
+                    outSlider: (int, int) = (0, 255), # outSlider = (low level, high level)
+                    ) -> np.ndarray:
+    ret = np.copy(rawData)
+    for i in range(rawData.shape[0]):
+        for j in range(rawData.shape[1]):
+            if rawData[i, j, channel] <= inSlider[0]:
+                pixel = 0
+            elif rawData[i, j, channel] >= inSlider[2]:
+                pixel = 255
+            else:
+                pixel = ((rawData[i, j, channel] - inSlider[0]) / (inSlider[2] - inSlider[0])) * 255
+            corrected = np.power((pixel / 255), 1 / inSlider[1])
+            ret[i, j, channel] = int(corrected * (outSlider[1] - outSlider[0]) + outSlider[0])
+    return ret

@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="26e4259e-f854-492b-b3b0-5603a8d4133c" name="Changes" comment="gray &amp; colored dithering merged">
+    <list default="true" id="26e4259e-f854-492b-b3b0-5603a8d4133c" name="Changes" comment="import njit">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PSWindow.py" beforeDir="false" afterPath="$PROJECT_DIR$/PSWindow.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/Utils.py" afterDir="false" />
@@ -157,7 +157,15 @@
       <option name="project" value="LOCAL" />
       <updated>1709434760628</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="import njit">
+      <option name="closed" value="true" />
+      <created>1709446005417</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1709446005417</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -178,6 +186,7 @@
     <MESSAGE value="ordered dithering (gray &amp; color)" />
     <MESSAGE value="theme module check; ordered dithering (gray &amp; color)" />
     <MESSAGE value="gray &amp; colored dithering merged" />
-    <option name="LAST_COMMIT_MESSAGE" value="gray &amp; colored dithering merged" />
+    <MESSAGE value="import njit" />
+    <option name="LAST_COMMIT_MESSAGE" value="import njit" />
   </component>
 </project>

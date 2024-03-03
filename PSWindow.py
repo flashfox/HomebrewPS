@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QIcon, QPixmap, QImage
 # Core operations
-from Utils import readBMP, cvtGrayscale, cvtOrderedDithering
+from Utils import readBMP, cvtGrayscale, cvtAlignedData, cvtOrderedDithering, colorAdjustment
 # Optional operations
 from Utils import histogram
 
@@ -94,7 +94,6 @@ class PSWindow(QMainWindow):
             self.resize(max(self.width + 20, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         else:
             self.setMinimumSize(INIT_WINDOW_WIDTH, INIT_WINDOW_HEIGHT)
-        histogram(self.rawData)
         self.show()
 
     def close(self):
@@ -110,9 +109,10 @@ class PSWindow(QMainWindow):
                 return
         if self.grayData is None:
             self.grayData = cvtGrayscale(self.rawData)
+        data = cvtAlignedData(self.grayData)
         self.postImgView = PostImageWindow(
             [QImage(self.rawData, self.width, self.height, self.width * 3, QImage.Format_RGB888),
-             QImage(self.grayData, self.width, self.height, QImage.Format_Grayscale8)],
+             QImage(data, self.width, self.height, QImage.Format_Grayscale8)],
             "Grayscale")
         self.postImgView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         self.postImgView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
@@ -124,7 +124,7 @@ class PSWindow(QMainWindow):
         if not colored:
             if self.grayData is None:
                 self.grayData = cvtGrayscale(self.rawData)
-            data = self.grayData
+            data = cvtAlignedData(self.grayData)
         else:
             data = self.rawData
         title = ["Ordered Dithering: 2x2 matrix",
@@ -146,7 +146,40 @@ class PSWindow(QMainWindow):
         self.postImgView.show()
 
     def autolevel(self):
-        return
+        if self.width <= 0 or self.height <= 0:
+            return
+        if self.postImgView is not None:
+            if self.postImgView.windowTitle() == 'Auto Level':
+                return
+        if self.grayData is None:
+            self.grayData = cvtGrayscale(self.rawData)
+        # Calculate historgram
+        hist, total = histogram(self.grayData)
+        # Cut off 0.1% of points on both side
+        low, high = (0, 255)
+        cutCount, ind = 0, 0
+        while cutCount < total * 0.001:
+            cutCount += hist[0, ind]
+            ind += 1
+        low = ind
+        cutCount, ind = 0, 255
+        while cutCount < total * 0.001:
+            cutCount += hist[0, ind]
+            ind -= 1
+        high = ind
+        # Red channel
+        leveled = colorAdjustment(self.rawData, 0, inSlider=(low, 1.0, high))
+        # Green channel
+        leveled = colorAdjustment(leveled, 1, inSlider=(low, 1.0, high))
+        # Blue channel
+        leveled = colorAdjustment(leveled, 2, inSlider=(low, 1.0, high))
+        self.postImgView = PostImageWindow(
+            [QImage(self.rawData, self.width, self.height, self.width * 3, QImage.Format_RGB888),
+             QImage(leveled, self.width, self.height, self.width * 3, QImage.Format_RGB888)],
+            "Auto Level")
+        self.postImgView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
+        self.postImgView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
+        self.postImgView.show()
 
     def huffman(self):
         return

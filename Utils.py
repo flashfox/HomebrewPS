@@ -50,31 +50,20 @@ def readBMP(fileName: str) -> (np.ndarray, (int, int), str):
 
 def cvtGrayscale(data: np.ndarray) -> np.ndarray:
     # dealing with 32-alignment issue, padding (4 - width) % 4 0s
-    ret = np.zeros((data.shape[0], data.shape[1] + (4 - data.shape[1]) % 4), dtype=np.uint8)
+    ret = np.zeros((data.shape[0], data.shape[1] + (4 - data.shape[1]) % 4, 1), dtype=np.uint8)
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
-            ret[i][j] = 0.299 * data[i][j][0] + 0.587 * data[i][j][1] + 0.114 * data[i][j][2]
+            ret[i][j][0] = 0.299 * data[i][j][0] + 0.587 * data[i][j][1] + 0.114 * data[i][j][2]
     return ret
 
-def cvtOrderedDithering(grayData: np.ndarray, ditType: int = 0) -> np.ndarray:
+def cvtOrderedDithering(data: np.ndarray, ditType: int = 0) -> np.ndarray:
     DIM = 2 ** (ditType + 1) # dimension of dithering matrix
     MAX = DIM ** 2 - 1 # maximum value of dithering matrix
-    ret = np.zeros(grayData.shape, dtype=np.uint8)
-    for i in range(grayData.shape[0]):
-        for j in range(grayData.shape[1]):
-            pixel = 255 - grayData[i, j]
-            x, y = i % DIM, j % DIM
-            ret[i, j] = 0 if pixel * MAX / 255 > Dithering.mat[ditType][x, y] else 255
-    return ret
-
-def cvtColoredOrderedDithering(rawData: np.ndarray, ditType: int = 0) -> np.ndarray:
-    DIM = 2 ** (ditType + 1) # dimension of dithering matrix
-    MAX = DIM ** 2 - 1 # maximum value of dithering matrix
-    ret = np.zeros(rawData.shape, dtype=np.uint8)
-    for i in range(rawData.shape[0]):
-        for j in range(rawData.shape[1]):
-            for c in range(rawData.shape[2]):
-                pixel = 255 - rawData[i, j, c]
+    ret = np.zeros(data.shape, dtype=np.uint8)
+    for i in range(data.shape[0]):
+        for j in range(data.shape[1]):
+            for k in range(data.shape[2]):
+                pixel = 255 - data[i, j, k]
                 x, y = i % DIM, j % DIM
-                ret[i, j, c] = 0 if pixel * MAX / 255 > Dithering.mat[ditType][x, y] else 255
+                ret[i, j, k] = 0 if pixel * MAX / 255 > Dithering.mat[ditType][x, y] else 255
     return ret

@@ -10,7 +10,6 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QIcon, QPixmap, QImage
 from Utils import readBMP, cvtGrayscale, cvtOrderedDithering
-from Utils import cvtColoredOrderedDithering
 from PyQt5.QtCore import *
 
 # Global consts
@@ -18,7 +17,7 @@ DEF_WIDTH = 300
 DEF_HEIGHT = 100
 INIT_WINDOW_WIDTH = 1024
 INIT_WINDOW_HEIGHT = 768
-ICON = 'psIcon.png'
+ICON = 'icon.png'
 
 class PSWindow(QMainWindow):
     def __init__(self):
@@ -31,7 +30,7 @@ class PSWindow(QMainWindow):
 
         # Menu bar: core ops
         self.menuCoreOps = QMenu("&Core Operations", self)
-        self.menuCoreOps.addAction(QAction("&Open File", self, shortcut="Ctrl+O", triggered=self.openFile))
+        self.menuCoreOps.addAction(QAction("&Open File ...", self, shortcut="Ctrl+O", triggered=self.openFile))
         self.menuCoreOps.addAction(QAction("&Exit", self, shortcut="Ctrl+Q", triggered=self.close))
         self.menuCoreOps.addSeparator()
         self.menuCoreOps.addAction(QAction("&Grayscale", self, shortcut="Alt+G", triggered=self.grayScale))
@@ -47,9 +46,9 @@ class PSWindow(QMainWindow):
         # Menu bar: optional ops
         self.menuOptOps = QMenu("&Optional Operations", self)
         coloredorderdOpts = [QAction("&2x2 matrix", self), QAction("&4x4 matrix", self), QAction("&8x8 matrix", self)]
-        coloredorderdOpts[0].triggered.connect(lambda: self.coloredOrderedDithering(0))
-        coloredorderdOpts[1].triggered.connect(lambda: self.coloredOrderedDithering(1))
-        coloredorderdOpts[2].triggered.connect(lambda: self.coloredOrderedDithering(2))
+        coloredorderdOpts[0].triggered.connect(lambda: self.orderedDithering(0, True))
+        coloredorderdOpts[1].triggered.connect(lambda: self.orderedDithering(1, True))
+        coloredorderdOpts[2].triggered.connect(lambda: self.orderedDithering(2, True))
         coloredOrdDitMenu = self.menuOptOps.addMenu("&Colored Ordered Dithering")
         coloredOrdDitMenu.addActions(coloredorderdOpts)
 
@@ -116,18 +115,29 @@ class PSWindow(QMainWindow):
         self.postImgView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         self.postImgView.show()
 
-    def orderedDithering(self, ditType: int = 0):
+    def orderedDithering(self, ditType: int = 0, colored: bool = False):
         if self.width <= 0 or self.height <= 0:
             return
-        if self.grayData is None:
-            self.grayData = cvtGrayscale(self.rawData)
-        grayData = self.grayData
-        ditherData = cvtOrderedDithering(grayData, ditType)
-        title = ["Ordered Dithering: 2x2 matrix", "Ordered Dithering: 4x4 matrix", "Ordered Dithering: 8x8 matrix"]
-        self.postImgView = PostImageWindow(
-            [QImage(grayData, self.width, self.height, QImage.Format_Grayscale8),
-             QImage(ditherData, self.width, self.height, QImage.Format_Grayscale8)],
-             title[ditType])
+        if not colored:
+            if self.grayData is None:
+                self.grayData = cvtGrayscale(self.rawData)
+            data = self.grayData
+        else:
+            data = self.rawData
+        ditherData = cvtOrderedDithering(data, ditType)
+        title = ["Ordered Dithering: 2x2 matrix",
+                 "Ordered Dithering: 4x4 matrix",
+                 "Ordered Dithering: 8x8 matrix"]
+        if not colored:
+            self.postImgView = PostImageWindow(
+                [QImage(data, self.width, self.height, QImage.Format_Grayscale8),
+                 QImage(ditherData, self.width, self.height, QImage.Format_Grayscale8)],
+                 title[ditType])
+        else:
+            self.postImgView = PostImageWindow(
+                [QImage(data, self.width, self.height, self.width * 3, QImage.Format_RGB888),
+                 QImage(ditherData, self.width, self.height, self.width * 3, QImage.Format_RGB888)],
+                "Colored " + title[ditType])
         self.postImgView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         self.postImgView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         self.postImgView.show()
@@ -137,22 +147,6 @@ class PSWindow(QMainWindow):
 
     def huffman(self):
         return
-
-    def coloredOrderedDithering(self, ditType: int = 0):
-        if self.width <= 0 or self.height <= 0:
-            return
-        ditherData = cvtColoredOrderedDithering(self.rawData, ditType)
-        title = ["Colored Ordered Dithering: 2x2 matrix",
-                 "Colored Ordered Dithering: 4x4 matrix",
-                 "Colored Ordered Dithering: 8x8 matrix"]
-        self.postImgView = PostImageWindow(
-            [QImage(self.rawData, self.width, self.height, self.width * 3, QImage.Format_RGB888),
-             QImage(ditherData, self.width, self.height, self.width * 3, QImage.Format_RGB888)],
-             title[ditType])
-        self.postImgView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
-        self.postImgView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
-        self.postImgView.show()
-
 
 class PostImageWindow(QWidget):
     def __init__(self, imageList: [QImage], type: str):

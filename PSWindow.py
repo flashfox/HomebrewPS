@@ -9,8 +9,11 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
 )
 from PyQt5.QtGui import QIcon, QPixmap, QImage
+# Core operations
 from Utils import readBMP, cvtGrayscale, cvtOrderedDithering
-from PyQt5.QtCore import *
+# Optional operations
+from Utils import histogram
+
 
 # Global consts
 DEF_WIDTH = 300
@@ -72,7 +75,7 @@ class PSWindow(QMainWindow):
         rawData, (width, height), errMsg = readBMP(fileName)
         if width <= 0 or height <= 0:
             if width < 0 or height < 0:
-                QMessageBox.information(self, "Homebrew Photoshop", errMsg)
+                QMessageBox.information(self, "Homebrew Photoshop", errMsg + ": %s"%fileName)
             return
         # reset processed data
         if self.grayData is not None:
@@ -91,7 +94,7 @@ class PSWindow(QMainWindow):
             self.resize(max(self.width + 20, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         else:
             self.setMinimumSize(INIT_WINDOW_WIDTH, INIT_WINDOW_HEIGHT)
-
+        histogram(self.rawData)
         self.show()
 
     def close(self):
@@ -115,7 +118,7 @@ class PSWindow(QMainWindow):
         self.postImgView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         self.postImgView.show()
 
-    def orderedDithering(self, ditType: int = 0, colored: bool = False):
+    def orderedDithering(self, opt: int = 0, colored: bool = False):
         if self.width <= 0 or self.height <= 0:
             return
         if not colored:
@@ -124,20 +127,20 @@ class PSWindow(QMainWindow):
             data = self.grayData
         else:
             data = self.rawData
-        ditherData = cvtOrderedDithering(data, ditType)
         title = ["Ordered Dithering: 2x2 matrix",
                  "Ordered Dithering: 4x4 matrix",
                  "Ordered Dithering: 8x8 matrix"]
+        ditherData = cvtOrderedDithering(data, opt)
         if not colored:
             self.postImgView = PostImageWindow(
                 [QImage(data, self.width, self.height, QImage.Format_Grayscale8),
                  QImage(ditherData, self.width, self.height, QImage.Format_Grayscale8)],
-                 title[ditType])
+                 title[opt])
         else:
             self.postImgView = PostImageWindow(
                 [QImage(data, self.width, self.height, self.width * 3, QImage.Format_RGB888),
                  QImage(ditherData, self.width, self.height, self.width * 3, QImage.Format_RGB888)],
-                "Colored " + title[ditType])
+                "Colored " + title[opt])
         self.postImgView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         self.postImgView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         self.postImgView.show()

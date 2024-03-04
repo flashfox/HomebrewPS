@@ -10,10 +10,10 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QIcon, QPixmap, QImage
 # Core operations
-from Utils import readBMP, cvtGrayscale, cvtAlignedData, cvtOrderedDithering, colorAdjustment
+from Utils import readBMP, cvtGrayscale, cvtAlignedData, cvtOrderedDithering, colorAdjustment, normalize
 # Optional operations
 from Utils import histogram
-
+import numpy as np
 
 # Global consts
 DEF_WIDTH = 300
@@ -145,6 +145,9 @@ class PSWindow(QMainWindow):
         self.postImgView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
         self.postImgView.show()
 
+    '''
+    Autolevel: approaching the effect of the algorithm "Enhance brightness and contrast" in Photoshop
+    '''
     def autolevel(self):
         if self.width <= 0 or self.height <= 0:
             return
@@ -153,26 +156,19 @@ class PSWindow(QMainWindow):
                 return
         if self.grayData is None:
             self.grayData = cvtGrayscale(self.rawData)
-        # Calculate historgram
-        hist, total = histogram(self.grayData)
-        # Cut off 0.1% of points on both side
-        low, high = (0, 255)
-        cutCount, ind = 0, 0
-        while cutCount < total * 0.001:
-            cutCount += hist[0, ind]
-            ind += 1
-        low = ind
-        cutCount, ind = 0, 255
-        while cutCount < total * 0.001:
-            cutCount += hist[0, ind]
-            ind -= 1
-        high = ind
-        # Red channel
-        leveled = colorAdjustment(self.rawData, 0, inSlider=(low, 1.0, high))
-        # Green channel
-        leveled = colorAdjustment(leveled, 1, inSlider=(low, 1.0, high))
-        # Blue channel
-        leveled = colorAdjustment(leveled, 2, inSlider=(low, 1.0, high))
+        # Normalize grayscale to (0-255)
+        grayData = normalize(self.grayData, (0, 255))
+        flattened = np.sort(grayData[:, :, 0], axis=None)
+        # Cut off lowest and highest values by 0.1% respectively
+        cuttingRate = 0.001
+        low, high = flattened[int(len(flattened) * cuttingRate)], flattened[-(1 + int(len(flattened) * cuttingRate))]
+        # Gamma adjustment determined by median against 128 (half of 255)
+        gamma = np.emath.logn(0.5, (flattened[(len(flattened) - 1) // 2] - low) / (high - low))
+        # Apply adjustment on RGB channels respectively
+        leveled = self.rawData
+        for channel in range(3):
+            leveled = colorAdjustment(leveled, channel, inSlider=(low, gamma, high))
+
         self.postImgView = PostImageWindow(
             [QImage(self.rawData, self.width, self.height, self.width * 3, QImage.Format_RGB888),
              QImage(leveled, self.width, self.height, self.width * 3, QImage.Format_RGB888)],

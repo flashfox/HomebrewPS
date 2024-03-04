@@ -83,13 +83,13 @@ def cvtOrderedDithering(data: np.ndarray, ditType: int = 0) -> np.ndarray:
     return ret
 
 @njit
-def histogram(data: np.ndarray) -> (np.ndarray, int):
+def histogram(data: np.ndarray) -> np.ndarray:
     ret = np.zeros((data.shape[2], 256), dtype=np.uint32)
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
             for k in range(data.shape[2]):
                 ret[k, data[i, j, k]] += 1
-    return ret, np.sum(ret)
+    return ret
 
 @njit
 def colorAdjustment(rawData: np.ndarray,
@@ -101,11 +101,37 @@ def colorAdjustment(rawData: np.ndarray,
     for i in range(rawData.shape[0]):
         for j in range(rawData.shape[1]):
             if rawData[i, j, channel] <= inSlider[0]:
-                pixel = 0
+                pixel = 0.0
             elif rawData[i, j, channel] >= inSlider[2]:
-                pixel = 255
+                pixel = 1.0
             else:
-                pixel = ((rawData[i, j, channel] - inSlider[0]) / (inSlider[2] - inSlider[0])) * 255
-            corrected = np.power((pixel / 255), 1 / inSlider[1])
+                pixel = (rawData[i, j, channel] - inSlider[0]) / (inSlider[2] - inSlider[0])
+            corrected = np.power(pixel, 1.0 / inSlider[1])
             ret[i, j, channel] = int(corrected * (outSlider[1] - outSlider[0]) + outSlider[0])
     return ret
+
+'''
+Normalize values in data to given range
+'''
+def normalize(data: np.ndarray, outRange: (int, int) = (0, 255)) -> np.ndarray:
+    ret = np.zeros(data.shape, dtype=np.uint8)
+    print(data.shape[0], data.shape[1], data.shape[2])
+    for k in range(data.shape[2]):
+        low, high = np.min(data[:, :, k], axis=None), np.max(data[:, :, k], axis=None)
+        for i in range(data.shape[0]):
+            for j in range(data.shape[1]):
+                if data[i, j, k] == low:
+                    ret[i, j, k] = outRange[0]
+                elif data[i, j, k] == high:
+                    ret[i, j, k] = outRange[1]
+                else:
+                    ret[i, j, k] = int((data[i, j, k] - low) / (high - low) * (outRange[1] - outRange[0])) + outRange[0]
+    return ret
+
+'''
+TDO
+Histogram equalization: 
+https://en.wikipedia.org/wiki/Histogram_equalization
+'''
+def histogramEqualization(data: np.ndarray) -> np.ndarray:
+    return None

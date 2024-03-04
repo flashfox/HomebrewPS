@@ -162,8 +162,9 @@ class PSWindow(QMainWindow):
         # Cut off lowest and highest values by 0.1% respectively
         cuttingRate = 0.001
         low, high = flattened[int(len(flattened) * cuttingRate)], flattened[-(1 + int(len(flattened) * cuttingRate))]
-        # Gamma adjustment determined by median against 128 (half of 255)
-        gamma = np.emath.logn(0.5, (flattened[(len(flattened) - 1) // 2] - low) / (high - low))
+        # Gamma adjustment determined by median (half of cut range) against 128 (half of 255)
+        med = (flattened[(len(flattened) - 1) // 2] + flattened[len(flattened) // 2]) / 2
+        gamma = np.emath.logn(0.5, (med - low) / (high - low))
         # Apply adjustment on RGB channels respectively
         leveled = self.rawData
         for channel in range(3):

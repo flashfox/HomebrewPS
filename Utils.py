@@ -113,11 +113,11 @@ def colorAdjustment(rawData: np.ndarray,
 '''
 Normalize values in data to given range
 '''
+@njit
 def normalize(data: np.ndarray, outRange: (int, int) = (0, 255)) -> np.ndarray:
     ret = np.zeros(data.shape, dtype=np.uint8)
-    print(data.shape[0], data.shape[1], data.shape[2])
     for k in range(data.shape[2]):
-        low, high = np.min(data[:, :, k], axis=None), np.max(data[:, :, k], axis=None)
+        low, high = np.min(data[:, :, k]), np.max(data[:, :, k])
         for i in range(data.shape[0]):
             for j in range(data.shape[1]):
                 if data[i, j, k] == low:

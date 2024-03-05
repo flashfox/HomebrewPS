@@ -201,6 +201,7 @@ class PSWindow(QMainWindow):
         self.popView.resize(max(self.width + 25, DEF_WIDTH), max(self.height + 68, DEF_HEIGHT))
         self.popView.show()
 
+
 class PostImageWindow(QWidget):
     def __init__(self, imageList: [QImage], type: str):
         # Window init

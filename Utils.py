@@ -53,7 +53,15 @@ def cvtGrayscale(data: np.ndarray) -> np.ndarray:
     ret = np.zeros((data.shape[0], data.shape[1], 1), dtype=np.uint8)
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
-            ret[i, j, 0] = 0.299 * data[i, j, 0] + 0.587 * data[i, j, 1] + 0.114 * data[i, j, 2]
+            val = 0.299 * data[i, j, 0] + 0.587 * data[i, j, 1] + 0.114 * data[i, j, 2]
+            # Always round 0.5 up; carefully deal with case like 0.4999999 (should be 0.5)
+            if (val % 1) >= 0.5:
+                val = np.floor(val) + 1
+            elif 0.5 - (val % 1) < 1e-6:
+                val = np.floor(val) + 1
+            else:
+                val = np.floor(val)
+            ret[i, j, 0] = int(val)
     return ret
 
 @njit
@@ -89,6 +97,15 @@ def histogram(data: np.ndarray) -> np.ndarray:
         for j in range(data.shape[1]):
             for k in range(data.shape[2]):
                 ret[k, data[i, j, k]] += 1
+    return ret
+
+def calEntropy(histogram: np.ndarray) -> np.ndarray:
+    ret = np.zeros((histogram.shape[0], 1), dtype=np.float32)
+    total = np.sum(histogram[0])
+    for channel in range(histogram.shape[0]):
+        for count in range(1, histogram.shape[1]):
+            p = float(histogram[channel, count] / total)
+            ret[channel] -= p * np.emath.log2(max(p, 1e-10))
     return ret
 
 @njit
@@ -129,7 +146,6 @@ def normalize(data: np.ndarray, outRange: (int, int) = (0, 255)) -> np.ndarray:
     return ret
 
 '''
-TDO
 Histogram equalization: 
 https://en.wikipedia.org/wiki/Histogram_equalization
 '''

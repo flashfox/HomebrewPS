@@ -49,15 +49,14 @@ def readBMP(fileName: str) -> (np.ndarray, (int, int), str):
 
 @njit
 def cvtGrayscale(data: np.ndarray) -> np.ndarray:
-    # returned data will not be 32-aligned
+    # returned gray data will not be 32-aligned
     ret = np.zeros((data.shape[0], data.shape[1], 1), dtype=np.uint8)
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
-            val = 0.299 * data[i, j, 0] + 0.587 * data[i, j, 1] + 0.114 * data[i, j, 2]
-            # Always round 0.5 up; carefully deal with case like 0.4999999 (should be 0.5)
+            # Use division to avoid deviated float issue
+            val = (299 * data[i, j, 0] + 587 * data[i, j, 1] + 114 * data[i, j, 2]) / 1000.0
+            # Always round 0.5 up to 1
             if (val % 1) >= 0.5:
-                val = np.floor(val) + 1
-            elif 0.5 - (val % 1) < 1e-6:
                 val = np.floor(val) + 1
             else:
                 val = np.floor(val)

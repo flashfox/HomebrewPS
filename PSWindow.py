@@ -195,7 +195,7 @@ class PSWindow(QMainWindow):
         grayWid.setPixmap(QPixmap(QImage(showData, self.width, self.height, QImage.Format_Grayscale8)))
         # text of entropy and Huffman code length
         hist = histogram(self.grayData)
-        entropy = calEntropy(hist)[0]
+        entropy = calEntropy(hist)[0, 0]
         # Show gray image and entroy and Huffman code length
         self.popView = DynamicWindow([grayWid, QLabel("Entropy: %.3f"%entropy)], "Huffman")
         self.popView.setMinimumSize(max(self.width + 25, DEF_WIDTH), max(self.height + 68, DEF_HEIGHT))

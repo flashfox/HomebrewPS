@@ -7,6 +7,7 @@ try:
 except ModuleNotFoundError:
     CUSTOMTHEME = False
 
+
 if __name__ == '__main__':
     mainApp = QApplication(sys.argv)
     if CUSTOMTHEME:

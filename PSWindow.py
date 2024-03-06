@@ -69,10 +69,18 @@ class PSWindow(QMainWindow):
         self.setCentralWidget(mainView)
 
         # Post-processing view (sub window, unique)
-        self.popView = None
+        self.popupView = None
         self.grayData = None
 
+        # Pixmap caches
+        self.rawPix = None
+        self.grayPix = None
+
     def openFile(self):
+        # Reset previous Pixmap caches if present
+        self.rawPix = None
+        self.grayPix = None
+        # Open new file
         fileName, _ = QFileDialog.getOpenFileName(self, 'Open File', '', 'BMP Files (*.png *.jpeg *.jpg *.bmp *.gif)')
         rawData, (width, height), errMsg = readBMP(fileName)
         if width <= 0 or height <= 0:
@@ -82,15 +90,15 @@ class PSWindow(QMainWindow):
         # reset processed data
         if self.grayData is not None:
             self.grayData = None
-        if self.popView is not None:
-            self.popView = None
+        if self.popupView is not None:
+            self.popupView = None
         # show opened file
         self.rawData = rawData
         self.width = width
         self.height = height
         img = QImage(self.rawData, self.width, self.height, self.width * 3, QImage.Format_RGB888)
-        pixmap = QPixmap.fromImage(img)
-        self.rawImgView.setPixmap(pixmap)
+        self.rawPix = QPixmap.fromImage(img)
+        self.rawImgView.setPixmap(self.rawPix)
         if self.width > 0 and self.height > 0:
             self.setMinimumSize(max(self.width + 20, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
             self.resize(max(self.width + 20, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
@@ -99,53 +107,66 @@ class PSWindow(QMainWindow):
         self.show()
 
     def close(self):
-        if self.popView:
-            self.popView = None
+        if self.popupView:
+            self.popupView = None
         super().close()
 
     def grayScale(self):
         if self.width <= 0 or self.height <= 0:
             return
-        if self.popView is not None:
-            if self.popView.windowTitle() == 'Grayscale':
+        if self.popupView is not None:
+            if self.popupView.windowTitle() == 'Grayscale':
                 return
         if self.grayData is None:
             self.grayData = cvtGrayscale(self.rawData)
-        showData = cvtAlignedData(self.grayData)
-        self.popView = PostImageWindow(
-            [QImage(self.rawData, self.width, self.height, self.width * 3, QImage.Format_RGB888),
-             QImage(showData, self.width, self.height, QImage.Format_Grayscale8)],
-            "Grayscale")
-        self.popView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
-        self.popView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
-        self.popView.show()
+        # Grayscale needs to be 32-aligned as per required by Qt API
+        alignedData = cvtAlignedData(self.grayData)
+        if self.rawPix is None:
+            self.rawPix = QPixmap(QImage(self.rawData, self.width, self.height, self.width * 3, QImage.Format_RGB888))
+        if self.grayPix is None:
+            self.grayPix = QPixmap(QImage(alignedData, self.width, self.height, QImage.Format_Grayscale8))
+        # Set up popup view
+        preView, postView = QLabel(), QLabel()
+        preView.setPixmap(self.rawPix)
+        postView.setPixmap(self.grayPix)
+        self.popupView = PopupWindow([preView, postView], "Grayscale", vertical=False)
+        self.popupView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
+        self.popupView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
+        self.popupView.show()
 
     def orderedDithering(self, opt: int = 0, colored: bool = False):
         if self.width <= 0 or self.height <= 0:
             return
-        if not colored:
-            if self.grayData is None:
-                self.grayData = cvtGrayscale(self.rawData)
-            data = cvtAlignedData(self.grayData)
-        else:
-            data = self.rawData
         title = ["Ordered Dithering: 2x2 matrix",
                  "Ordered Dithering: 4x4 matrix",
-                 "Ordered Dithering: 8x8 matrix"]
-        ditherData = cvtOrderedDithering(data, opt)
+                 "Ordered Dithering: 8x8 matrix"][opt]
         if not colored:
-            self.popView = PostImageWindow(
-                [QImage(data, self.width, self.height, QImage.Format_Grayscale8),
-                 QImage(ditherData, self.width, self.height, QImage.Format_Grayscale8)],
-                 title[opt])
+            # Grayscale ordered dithering
+            if self.grayData is None:
+                self.grayData = cvtGrayscale(self.rawData)
+            alignedData = cvtAlignedData(self.grayData)
+            posData = cvtOrderedDithering(alignedData, opt)
+            if self.grayPix is None:
+                self.grayPix = QPixmap(QImage(alignedData, self.width, self.height, QImage.Format_Grayscale8))
+            prePix = self.grayPix
+            postPix = QPixmap(QImage(posData, self.width, self.height, QImage.Format_Grayscale8))
         else:
-            self.popView = PostImageWindow(
-                [QImage(data, self.width, self.height, self.width * 3, QImage.Format_RGB888),
-                 QImage(ditherData, self.width, self.height, self.width * 3, QImage.Format_RGB888)],
-                "Colored " + title[opt])
-        self.popView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
-        self.popView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
-        self.popView.show()
+            # Colored ordered dithering
+            posData = cvtOrderedDithering(self.rawData, opt)
+            if self.rawPix is None:
+                self.rawPix = QPixmap(QImage(self.rawData, self.width, self.height, self.width * 3, QImage.Format_RGB888))
+            prePix = self.rawPix
+            postPix = QPixmap(QImage(posData, self.width, self.height, self.width * 3, QImage.Format_RGB888))
+            title = "Colored " + title
+
+        # Set up popup view
+        preView, postView = QLabel(), QLabel()
+        preView.setPixmap(prePix)
+        postView.setPixmap(postPix)
+        self.popupView = PopupWindow([preView, postView], title, vertical=False)
+        self.popupView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
+        self.popupView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
+        self.popupView.show()
 
     '''
     Autolevel: approaching the effect of the algorithm "Enhance brightness and contrast" in Photoshop
@@ -153,8 +174,8 @@ class PSWindow(QMainWindow):
     def autolevel(self):
         if self.width <= 0 or self.height <= 0:
             return
-        if self.popView is not None:
-            if self.popView.windowTitle() == 'Auto Level':
+        if self.popupView is not None:
+            if self.popupView.windowTitle() == 'Auto Level':
                 return
         if self.grayData is None:
             self.grayData = cvtGrayscale(self.rawData)
@@ -165,65 +186,54 @@ class PSWindow(QMainWindow):
         cuttingRate = 0.001
         low, high = flattened[int(len(flattened) * cuttingRate)], flattened[-(1 + int(len(flattened) * cuttingRate))]
         # Gamma adjustment determined by median (half of cut range) against 128 (half of 255)
-        # Gamma is forced to fall in range (0.01, 9.99)
         med = (flattened[(len(flattened) - 1) // 2] + flattened[len(flattened) // 2]) / 2
+        # Gamma is forced to fall in range (0.01, 9.99)
         gamma = min(max(np.emath.logn(0.5, max(med - low, 1) / max(high - low, 1)), 0.01), 9.99)
         # Apply adjustment on RGB channels respectively
-        leveled = self.rawData
+        leveledData = self.rawData
         for channel in range(3):
-            leveled = colorAdjustment(leveled, channel, inSlider=(low, gamma, high))
-
-        self.popView = PostImageWindow(
-            [QImage(self.rawData, self.width, self.height, self.width * 3, QImage.Format_RGB888),
-             QImage(leveled, self.width, self.height, self.width * 3, QImage.Format_RGB888)],
-            "Auto Level")
-        self.popView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
-        self.popView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
-        self.popView.show()
+            leveledData = colorAdjustment(leveledData, channel, inSlider=(low, gamma, high))
+        # Set up popup view
+        rawView, postView = QLabel(), QLabel()
+        if self.rawPix is None:
+            self.rawPix = QPixmap(QImage(self.rawData, self.width, self.height, self.width * 3, QImage.Format_RGB888))
+        rawView.setPixmap(self.rawPix)
+        postView.setPixmap((QPixmap(QImage(leveledData, self.width, self.height, self.width * 3, QImage.Format_RGB888))))
+        self.popupView = PopupWindow([rawView, postView], "Auto Level", vertical=False)
+        self.popupView.setMinimumSize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
+        self.popupView.resize(max(self.width * 2 + 40, DEF_WIDTH), max(self.height + 48, DEF_HEIGHT))
+        self.popupView.show()
 
     def huffman(self):
         if self.width <= 0 or self.height <= 0:
             return
-        if self.popView is not None:
-            if self.popView.windowTitle() == 'Huffman':
+        if self.popupView is not None:
+            if self.popupView.windowTitle() == 'Huffman':
                 return
         if self.grayData is None:
             self.grayData = cvtGrayscale(self.rawData)
-        showData = cvtAlignedData(self.grayData)
-        # gray image
-        grayWid = QLabel()
-        grayWid.setPixmap(QPixmap(QImage(showData, self.width, self.height, QImage.Format_Grayscale8)))
         # text of entropy and Huffman code length
         hist = histogram(self.grayData)
         entropy = calEntropy(hist)[0, 0]
-        # Show gray image and entroy and Huffman code length
-        self.popView = DynamicWindow([grayWid, QLabel("Entropy: %.3f"%entropy)], "Huffman")
-        self.popView.setMinimumSize(max(self.width + 25, DEF_WIDTH), max(self.height + 68, DEF_HEIGHT))
-        self.popView.resize(max(self.width + 25, DEF_WIDTH), max(self.height + 68, DEF_HEIGHT))
-        self.popView.show()
+        # gray image
+        alignedData = cvtAlignedData(self.grayData)
+        grayView = QLabel()
+        if self.grayPix is None:
+            self.grayPix = QPixmap(QImage(alignedData, self.width, self.height, QImage.Format_Grayscale8))
+        grayView.setPixmap(self.grayPix)
+        # Set up popup view
+        self.popupView = PopupWindow([grayView, QLabel("Entropy: %.3f" % entropy)], "Huffman")
+        self.popupView.setMinimumSize(max(self.width + 25, DEF_WIDTH), max(self.height + 68, DEF_HEIGHT))
+        self.popupView.resize(max(self.width + 25, DEF_WIDTH), max(self.height + 68, DEF_HEIGHT))
+        self.popupView.show()
 
-
-class PostImageWindow(QWidget):
-    def __init__(self, imageList: [QImage], type: str):
+class PopupWindow(QWidget):
+    def __init__(self, widgetList: [QWidget], type: str, vertical: bool = True):
         # Window init
         super().__init__()
         self.setWindowTitle(type)
         self.setWindowIcon(QIcon(ICON))
-        layout = QHBoxLayout()
-        viewList = []
-        for img in imageList:
-            viewList.append(QLabel())
-            viewList[-1].setPixmap(QPixmap(img))
-            layout.addWidget(viewList[-1])
-        self.setLayout(layout)
-
-class DynamicWindow(QWidget):
-    def __init__(self, widgetList: [QWidget], type: str):
-        # Window init
-        super().__init__()
-        self.setWindowTitle(type)
-        self.setWindowIcon(QIcon(ICON))
-        layout = QVBoxLayout()
+        layout = QVBoxLayout() if vertical else QHBoxLayout()
         for wid in widgetList:
             layout.addWidget(wid)
         self.setLayout(layout)

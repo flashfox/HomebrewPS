@@ -13,7 +13,7 @@ from PyQt5.QtGui import QIcon, QPixmap, QImage
 # Core operations
 from Utils import readBMP, cvtGrayscale, cvtAlignedData, cvtOrderedDithering, colorAdjustment, normalize, calEntropy
 # Optional operations
-from Utils import histogram
+from Utils import histogram, calHuffman
 import numpy as np
 
 
@@ -215,16 +215,12 @@ class PSWindow(QMainWindow):
         # text of entropy and Huffman code length
         hist = histogram(self.grayData)
         entropy = calEntropy(hist)[0, 0]
-        # gray image
-        alignedData = cvtAlignedData(self.grayData)
-        grayView = QLabel()
-        if self.grayPix is None:
-            self.grayPix = QPixmap(QImage(alignedData, self.width, self.height, QImage.Format_Grayscale8))
-        grayView.setPixmap(self.grayPix)
+        avgLength = calHuffman(hist[0])
         # Set up popup view
-        self.popupView = PopupWindow([grayView, QLabel("Entropy: %.3f" % entropy)], "Huffman")
-        self.popupView.setMinimumSize(max(self.width + 25, DEF_WIDTH), max(self.height + 68, DEF_HEIGHT))
-        self.popupView.resize(max(self.width + 25, DEF_WIDTH), max(self.height + 68, DEF_HEIGHT))
+        self.popupView = PopupWindow([QLabel("Entropy: %.3f" % entropy),
+                                      QLabel("Average Huffman Code Length: %.3f bit" % avgLength
+                                      + "s" * int(avgLength > 1) + "/symbol")], "Huffman")
+        self.popupView.setMinimumSize(max(25, DEF_WIDTH), max(68, DEF_HEIGHT))
         self.popupView.show()
 
 class PopupWindow(QWidget):

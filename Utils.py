@@ -1,6 +1,9 @@
 import os
 import numpy as np
 from numba import njit
+from collections import Counter, defaultdict
+from heapq import heapify, heappush, heappop
+from functools import reduce
 
 # Const ordered dithering matrices
 # To use decorator numba.njit, matrices must be hard-coded separately
@@ -127,26 +130,51 @@ def colorAdjustment(rawData: np.ndarray,
     return ret
 
 '''
-Normalize values in data to given range
+Normalize values in data to given target range
 '''
 @njit
-def normalize(data: np.ndarray, outRange: (int, int) = (0, 255)) -> np.ndarray:
+def normalize(data: np.ndarray, targetRange: (int, int) = (0, 255)) -> np.ndarray:
     ret = np.zeros(data.shape, dtype=np.uint8)
     for k in range(data.shape[2]):
         low, high = np.min(data[:, :, k]), np.max(data[:, :, k])
         for i in range(data.shape[0]):
             for j in range(data.shape[1]):
                 if data[i, j, k] == low:
-                    ret[i, j, k] = outRange[0]
+                    ret[i, j, k] = targetRange[0]
                 elif data[i, j, k] == high:
-                    ret[i, j, k] = outRange[1]
+                    ret[i, j, k] = targetRange[1]
                 else:
-                    ret[i, j, k] = int((data[i, j, k] - low) / (high - low) * (outRange[1] - outRange[0])) + outRange[0]
+                    ret[i, j, k] = int((data[i, j, k] - low) / (high - low) * (targetRange[1] - targetRange[0])) + targetRange[0]
     return ret
 
-'''
-Histogram equalization: 
-https://en.wikipedia.org/wiki/Histogram_equalization
-'''
-def histogramEqualization(data: np.ndarray) -> np.ndarray:
-    return None
+def calHuffman(hist: np.ndarray):
+    class Node:
+        def __init__(self, key=0, left=None, right=None):
+            self.key, self.left, self.right = key, left, right
+        def __lt__(self, other):
+            return self.key < other.key
+    leaves = []
+    for value in range(1, 256):
+        if hist[value] > 0:
+            heappush(leaves, (hist[value], Node(value)))
+    while len(leaves) > 1:
+        (countA, nodeA), (countB, nodeB) = heappop(leaves), heappop(leaves)
+        newNode = Node(-1, nodeA, nodeB)
+        heappush(leaves, (countA + countB, newNode))
+    coded, length = defaultdict(int), 0
+    total, toVisit = leaves[0][0], [leaves[0][1]]
+    while len(toVisit):
+        newVisit = []
+        for node in toVisit:
+            if node.key != -1:
+                coded[node.key] = length
+            if node.left is not None:
+                newVisit.append(node.left)
+            if node.right is not None:
+                newVisit.append(node.right)
+        toVisit = newVisit
+        length += 1
+    ret = 0
+    for value in coded:
+        ret += coded[value] * hist[value]
+    return ret / total

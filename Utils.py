@@ -154,7 +154,7 @@ def calHuffman(hist: np.ndarray):
         def __lt__(self, other):
             return self.key < other.key
     leaves = []
-    for value in range(1, 256):
+    for value in range(0, 256):
         if hist[value] > 0:
             heappush(leaves, (hist[value], Node(value)))
     while len(leaves) > 1:

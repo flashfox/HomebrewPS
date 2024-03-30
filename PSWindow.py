@@ -217,10 +217,10 @@ class PSWindow(QMainWindow):
         entropy = calEntropy(hist)[0, 0]
         avgLength = calHuffman(hist[0])
         # Set up popup view
-        self.popupView = PopupWindow([QLabel("Entropy: %.3f" % entropy),
-                                      QLabel("Average Huffman Code Length: %.3f bit" % avgLength
-                                      + "s" * int(avgLength > 1) + "/symbol")], "Huffman")
-        self.popupView.setMinimumSize(max(25, DEF_WIDTH), max(68, DEF_HEIGHT))
+        self.popupView = PopupWindow([QLabel("Entropy (bps): <b>%.3f</b>" % entropy),
+                                      QLabel("Average Huffman Code Length (bps): <b>%.3f</b>" % avgLength)],
+                                     "Huffman")
+        self.popupView.setMinimumSize(DEF_WIDTH, DEF_HEIGHT)
         self.popupView.show()
 
 class PopupWindow(QWidget):

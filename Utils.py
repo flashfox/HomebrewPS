@@ -1,9 +1,8 @@
 import os
 import numpy as np
 from numba import njit
-from collections import Counter, defaultdict
-from heapq import heapify, heappush, heappop
-from functools import reduce
+from collections import defaultdict
+from heapq import heappush, heappop
 
 # Const ordered dithering matrices
 # To use decorator numba.njit, matrices must be hard-coded separately
@@ -149,7 +148,8 @@ def normalize(data: np.ndarray, targetRange: (int, int) = (0, 255)) -> np.ndarra
 
 def calHuffman(hist: np.ndarray):
     class Node:
-        def __init__(self, key=0, left=None, right=None):
+        def __init__(self, key=-1, left=None, right=None):
+            # for leaf node (raw values), key = value; for non-leaf node (merged values), key = -1
             self.key, self.left, self.right = key, left, right
         def __lt__(self, other):
             return self.key < other.key
@@ -159,8 +159,7 @@ def calHuffman(hist: np.ndarray):
             heappush(leaves, (hist[value], Node(value)))
     while len(leaves) > 1:
         (countA, nodeA), (countB, nodeB) = heappop(leaves), heappop(leaves)
-        newNode = Node(-1, nodeA, nodeB)
-        heappush(leaves, (countA + countB, newNode))
+        heappush(leaves, (countA + countB, Node(left=nodeA, right=nodeB)))
     coded, length = defaultdict(int), 0
     total, toVisit = leaves[0][0], [leaves[0][1]]
     while len(toVisit):

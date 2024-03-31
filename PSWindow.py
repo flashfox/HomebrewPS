@@ -56,6 +56,7 @@ class PSWindow(QMainWindow):
         coloredorderdOpts[2].triggered.connect(lambda: self.orderedDithering(2, True))
         coloredOrdDitMenu = self.menuOptOps.addMenu("&Colored Ordered Dithering")
         coloredOrdDitMenu.addActions(coloredorderdOpts)
+        self.menuOptOps.addAction(QAction("&Level Adjustment", self, shortcut="Alt+L", triggered=self.levelAdjustment))
 
         self.menuBar().addMenu(self.menuCoreOps)
         self.menuBar().addMenu(self.menuOptOps)
@@ -223,6 +224,16 @@ class PSWindow(QMainWindow):
         self.popupView.setMinimumSize(DEF_WIDTH, DEF_HEIGHT)
         self.popupView.show()
 
+    def levelAdjustment(self):
+        if self.width <= 0 or self.height <= 0:
+            return
+        if self.popupView is not None:
+            if self.popupView.windowTitle() == 'Level Adjustment':
+                return
+        self.popupView = LevelAdjWindow()
+        self.popupView.show()
+
+
 class PopupWindow(QWidget):
     def __init__(self, widgetList: [QWidget], type: str, vertical: bool = True):
         # Window init
@@ -234,3 +245,9 @@ class PopupWindow(QWidget):
             layout.addWidget(wid)
         self.setLayout(layout)
 
+class LevelAdjWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('Level Adjustment')
+        self.setWindowIcon(QIcon(ICON))
+        return

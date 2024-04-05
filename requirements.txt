@@ -1,5 +1,5 @@
-PyQt5
-numpy
-numba
-pyqtdarktheme
-superqt
+PyQt5==5.15.10
+numpy==1.26.4
+numba==0.59.0
+pyqtdarktheme==2.1.0
+superqt==0.6.3

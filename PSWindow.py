@@ -8,14 +8,23 @@ from PyQt5.QtWidgets import (
     QLabel,
     QHBoxLayout,
     QVBoxLayout,
+    QTabWidget,
+
 )
 from PyQt5.QtGui import QIcon, QPixmap, QImage
+from PyQt5.QtCore import Qt, QSignalMapper
 # Core operations
 from Utils import readBMP, cvtGrayscale, cvtAlignedData, cvtOrderedDithering, colorAdjustment, normalize, calEntropy
 # Optional operations
 from Utils import histogram, calHuffman
 import numpy as np
+from superqt import QLabeledRangeSlider, QLabeledDoubleSlider
 
+QSS = """
+QRangeSlider{
+    background-color: none;
+}
+"""
 
 # Global consts
 DEF_WIDTH = 300
@@ -29,6 +38,7 @@ class PSWindow(QMainWindow):
         # Window init
         super().__init__()
         self.setWindowTitle("Homebrew Photoshop")
+        # self.setStyleSheet("background-color:  #808080;")
         self.setWindowIcon(QIcon(ICON))
         self.resize(INIT_WINDOW_WIDTH, INIT_WINDOW_HEIGHT)
         self.width = self.height = -1
@@ -230,7 +240,7 @@ class PSWindow(QMainWindow):
         if self.popupView is not None:
             if self.popupView.windowTitle() == 'Level Adjustment':
                 return
-        self.popupView = LevelAdjWindow()
+        self.popupView = LevelAdjWindow(self.rawData)
         self.popupView.show()
 
 
@@ -239,6 +249,7 @@ class PopupWindow(QWidget):
         # Window init
         super().__init__()
         self.setWindowTitle(type)
+        # self.setStyleSheet("background-color:  #808080;")
         self.setWindowIcon(QIcon(ICON))
         layout = QVBoxLayout() if vertical else QHBoxLayout()
         for wid in widgetList:
@@ -246,8 +257,110 @@ class PopupWindow(QWidget):
         self.setLayout(layout)
 
 class LevelAdjWindow(QWidget):
-    def __init__(self):
+
+    class CustomSlider(QLabeledDoubleSlider):
+        def __init__(self, channel: int = -1, sliderId: int = -1):
+            super().__init__(Qt.Orientation.Horizontal)
+            self.channel = channel
+            self.sliderId = sliderId
+        def setValue(self, *args):
+            super().setValue(*args)
+        def setRange(self, *args):
+            super().setRange(*args)
+        def connect(self, *args):
+            super().valueChanged.connect(*args)
+    class CustomRangeSlider(QLabeledRangeSlider):
+        def __init__(self, channel: int = -1, sliderId: int = -1):
+            super().__init__(Qt.Orientation.Horizontal)
+            self.channel = channel
+            self.sliderId = sliderId
+        def setValue(self, *args):
+            super().setValue(*args)
+        def setRange(self, *args):
+            super().setRange(*args)
+        def connect(self, *args):
+            super().valueChanged.connect(*args)
+
+    def __init__(self, data: np.ndarray):
         super().__init__()
         self.setWindowTitle('Level Adjustment')
         self.setWindowIcon(QIcon(ICON))
-        return
+        self.rawData = data
+        # Image view
+        pix = QPixmap(QImage(self.rawData, data.shape[1], data.shape[0], data.shape[1] * 3, QImage.Format_RGB888))
+        self.imgView = QLabel()
+        self.imgView.setPixmap(pix)
+
+        # Adjustment parameters: [[gamma], [in Level], [out Level]]
+        # gamma: [all, R, G, B]
+        # in/out level: [all, R, G, B], each channel (all, R, G, B): (low, high)
+        self.parameters = [[1.0, 1.0, 1.0, 1.0],
+                           [(0, 255), (0, 255), (0, 255), (0, 255)],
+                           [(0, 255), (0, 255), (0, 255), (0, 255)]]
+
+        # Sliders: [all, R, G, B]
+        self.sliders = []
+        for channel in range(4):
+            self.sliders.append([])
+            # sliders[]: [in gamma, in level, out level]
+            for sliderId in range(3):
+                if sliderId == 0:
+                    slider = self.CustomSlider(channel, sliderId)
+                    slider.setRange(0.01, 9.99)
+                    slider.setValue(self.parameters[0][channel])
+                else:
+                    slider = self.CustomRangeSlider(channel, sliderId)
+                    slider.setRange(0, 255)
+                    slider.setValue(self.parameters[sliderId][channel])
+
+                slider.valueChanged.connect(self.sliderChanged)
+                slider.setStyleSheet(QSS)
+                slider.setTracking(True)
+                self.sliders[-1].append(slider)
+
+        # Tab control view
+        self.tabViews = []
+        tabNames = ['All Channels', 'Red', 'Green', 'Blue']
+        sliderNames = ['<b>Input Gamma</b>', '<b>Input Level</b>', '<b>Output Level</b>']
+        tabViews = QTabWidget()
+        for channel in range(4):
+            tabLayout = QVBoxLayout()
+            for sliderId in range(3):
+                tabLayout.addWidget(QLabel(sliderNames[sliderId]))
+                tabLayout.addWidget(self.sliders[channel][sliderId])
+            tabView = QWidget()
+            tabView.setLayout(tabLayout)
+            tabView.setFixedSize(300, 300)
+            tabViews.addTab(tabView, tabNames[channel])
+
+        # Set up popup view
+        layout = QHBoxLayout()
+        layout.addWidget(self.imgView)
+        layout.addWidget(tabViews)
+        self.setLayout(layout)
+
+
+    # All-in-one handler for sliders
+    def sliderChanged(self, data):
+        channel, sliderId = self.sender().channel, self.sender().sliderId
+        self.parameters[sliderId][channel] = data
+        if channel == 0:
+            for channelId in range(1, 4):
+                self.sliders[channelId][sliderId].setValue(data)
+        else:
+            self.updateImage()
+
+    def updateImage(self):
+        data = self.rawData
+        for channel in range(1, 4):
+            data = colorAdjustment(data,
+                                   channel - 1,
+                                   (self.parameters[1][channel][0],
+                                    self.parameters[0][channel],
+                                    self.parameters[1][channel][1]),
+                                   (self.parameters[2][channel][0],
+                                    self.parameters[2][channel][1])
+                                   )
+        pix = QPixmap(QImage(data, data.shape[1], data.shape[0], data.shape[1] * 3, QImage.Format_RGB888))
+        self.imgView.setPixmap(pix)
+

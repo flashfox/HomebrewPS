@@ -8,23 +8,15 @@ from PyQt5.QtWidgets import (
     QLabel,
     QHBoxLayout,
     QVBoxLayout,
-    QTabWidget,
-
+    QTabWidget
 )
 from PyQt5.QtGui import QIcon, QPixmap, QImage
-from PyQt5.QtCore import Qt, QSignalMapper
-# Core operations
-from Utils import readBMP, cvtGrayscale, cvtAlignedData, cvtOrderedDithering, colorAdjustment, normalize, calEntropy
-# Optional operations
-from Utils import histogram, calHuffman
-import numpy as np
+from PyQt5.QtCore import Qt
 from superqt import QLabeledRangeSlider, QLabeledDoubleSlider
 
-QSS = """
-QRangeSlider{
-    background-color: none;
-}
-"""
+from Utils import readBMP, cvtGrayscale, cvtAlignedData, cvtOrderedDithering, colorAdjustment, normalize, calEntropy
+from Utils import histogram, calHuffman
+import numpy as np
 
 # Global consts
 DEF_WIDTH = 300
@@ -32,6 +24,11 @@ DEF_HEIGHT = 100
 INIT_WINDOW_WIDTH = 1024
 INIT_WINDOW_HEIGHT = 768
 ICON = 'icon.png'
+QSS = """
+    QRangeSlider{
+        background-color: none;
+    }
+"""
 
 class PSWindow(QMainWindow):
     def __init__(self):
@@ -66,7 +63,7 @@ class PSWindow(QMainWindow):
         coloredorderdOpts[2].triggered.connect(lambda: self.orderedDithering(2, True))
         coloredOrdDitMenu = self.menuOptOps.addMenu("&Colored Ordered Dithering")
         coloredOrdDitMenu.addActions(coloredorderdOpts)
-        self.menuOptOps.addAction(QAction("&Level Adjustment", self, shortcut="Alt+L", triggered=self.levelAdjustment))
+        self.menuOptOps.addAction(QAction("&Color Adjustment", self, shortcut="Alt+L", triggered=self.levelAdjustment))
 
         self.menuBar().addMenu(self.menuCoreOps)
         self.menuBar().addMenu(self.menuOptOps)
@@ -238,7 +235,7 @@ class PSWindow(QMainWindow):
         if self.width <= 0 or self.height <= 0:
             return
         if self.popupView is not None:
-            if self.popupView.windowTitle() == 'Level Adjustment':
+            if self.popupView.windowTitle() == 'Color Adjustment':
                 return
         self.popupView = LevelAdjWindow(self.rawData)
         self.popupView.show()
@@ -283,7 +280,7 @@ class LevelAdjWindow(QWidget):
 
     def __init__(self, data: np.ndarray):
         super().__init__()
-        self.setWindowTitle('Level Adjustment')
+        self.setWindowTitle('Color Adjustment')
         self.setWindowIcon(QIcon(ICON))
         self.rawData = data
         # Image view

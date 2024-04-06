@@ -89,7 +89,7 @@ class PSWindow(QMainWindow):
         self.rawPix = None
         self.grayPix = None
         # Open new file
-        fileName, _ = QFileDialog.getOpenFileName(self, 'Open File', '', 'BMP Files (*.png *.jpeg *.jpg *.bmp *.gif)')
+        fileName, _ = QFileDialog.getOpenFileName(self, 'Open File', '', 'BMP Files (*.bmp)')
         rawData, (width, height), errMsg = readBMP(fileName)
         if width <= 0 or height <= 0:
             if width < 0 or height < 0:

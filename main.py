@@ -9,7 +9,7 @@ except ModuleNotFoundError:
 
 if __name__ == '__main__':
     mainApp = QApplication(sys.argv)
-    if CUSTOMTHEME:
+    if CUSTOMTHEME and len(sys.argv[1:]) == 0:
         qdarktheme.setup_theme(custom_colors={"background": "#404040"})
     psWindow = PSWindow()
     psWindow.show()
